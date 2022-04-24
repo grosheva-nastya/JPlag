@@ -1,0 +1,86 @@
+import plotly.graph_objects as go
+import requests
+from jinja2 import Template
+import json
+from datetime import datetime
+
+# html = open('/home/prsem/avgrosheva/avgrosheva/template.html', encoding="utf-8").read()
+# template = Template(html)
+
+#Запрос для Зулипа
+responseZulip = requests.post("http://94.79.54.21:3000/api/zulip/getData", json={
+    "studEmail": "avgrosheva@miem.hse.ru",
+    "beginDate": "2022-01-01",
+    "endDate": "2022-05-01",
+    "timeRange": 10,
+    "token": "dIlUIIpKrjCcrmmM"
+}).json()
+
+#Запрос для Гитлаба
+responseGitLab = requests.post("http://94.79.54.21:3000/api/git/getDataPerWeek", json={
+    "studEmail": "avgrosheva@edu.hse.ru",
+    "beginDate": "2022-01-01",
+    "endDate": "2022-05-01",
+    "hideMerge": True,
+    "token": "dIlUIIpKrjCcrmmM"
+}).json()
+
+#Строим графики зулипа
+days = []
+messagedays = []
+for i in responseZulip['stats']:
+    days.append(i['beginDate'][0:15])
+    messagedays.append(i['messageCount'])
+
+x_zul = days
+y_zul = messagedays
+zulip_bar = go.Figure([go.Bar(x=x_zul, y=y_zul)])
+zulip_linear = go.Figure([go.Scatter(x=x_zul, y=y_zul)])
+
+#Считаем количество сообщений в зулипе
+CountMessage = 0
+for i in responseZulip['messages']:
+    CountMessage = CountMessage+1
+
+#Ищем каналы, в которых я была
+name_channels = []
+for i in responseZulip['messages']:
+        if i['name'] not in name_channels:
+            name_channels.append(i['name'])
+            name_channels = ", ".join(name_channels)
+
+
+#Строим графики гита
+week = []
+countcommit = []
+
+for i in responseGitLab['projects']:
+    if i['name'] == "ivt21-miniproject / Анастасия Грошева":
+        for i1 in responseGitLab['commits_stats']:
+            week.append(i1['beginDate'][4:15])
+            countcommit.append(i1['commitCount'])
+# print(responseGitLab)
+x_git = week
+y_git = countcommit
+git_bar = go.Figure([go.Bar(x=x_git, y=y_git)])
+git_linear = go.Figure([go.Scatter(x=x_git, y=y_git)])
+
+#Считаем общее количество коммитов
+CountGitCommit = 0
+for i in responseGitLab['projects']:
+    if i['name'] == "ivt21-miniproject / Анастасия Грошева":
+        for i1 in responseGitLab['commitCount']:
+            CountGitCommit = CountGitCommit+1
+
+print(CountGitCommit)
+
+# git_linear.show() #только для пайчарма
+
+with open('/var/www/html/students/avgrosheva/avgrosheva.html', 'w', encoding="utf-8") as f:
+f.write(template.render(
+    zulip_linear=zulip_linear.to_html(),
+    zulip_bar=zulip_bar.to_html(),
+    message_zulip=CountMessage,
+    name_channels=name_channels,
+    git_linear=git_linear.to_html(),
+    git_bar=git_bar.to_html()))
